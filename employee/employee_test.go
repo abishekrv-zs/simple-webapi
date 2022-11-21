@@ -1,9 +1,10 @@
 package employee
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -11,69 +12,62 @@ func TestGetEmployee(t *testing.T) {
 
 	tests := []struct {
 		description string
-		req         string
 		expCode     int
-		expResp     string
+		expResp     []employee
 	}{
 		{
 			"Normal get request",
-			"",
 			200,
-			`[{"id":1,"name":"Abishek","age":22,"address":"Chennai"},{"id":2,"name":"Kavin","age":22,"address":"Mumbai"}]`,
-		},
-		{
-			"Request with some random body",
-			"sadsahdksadk",
-			200,
-			`[{"id":1,"name":"Abishek","age":22,"address":"Chennai"},{"id":2,"name":"Kavin","age":22,"address":"Mumbai"}]`,
+			[]employee{
+				{1, "Abishek", 22, "Chennai"},
+				{2, "Kavin", 22, "Mumbai"},
+			},
 		},
 	}
 
 	for _, tc := range tests {
-		mockReq := httptest.NewRequest("GET", "/employee", strings.NewReader(tc.req))
+		mockReq := httptest.NewRequest("GET", "/employee", nil)
 		mockResp := httptest.NewRecorder()
 
 		GetEmployee(mockResp, mockReq)
 
-		assert.Equal(t, tc.expCode, mockResp.Code)
-		assert.Equal(t, tc.expResp, strings.TrimSpace(mockResp.Body.String()))
+		var actResp []employee
+
+		_ = json.Unmarshal(mockResp.Body.Bytes(), &actResp)
+
+		assert.Equal(t, tc.expCode, mockResp.Code, tc.description)
+		assert.Equal(t, tc.expResp, actResp, tc.description)
+
 	}
 }
 
 func TestPostEmployee(t *testing.T) {
 	tests := []struct {
 		description string
-		req         string
-		expResp     string
+		req         employee
 		expCode     int
+		expResp     employee
 	}{
 		{
 			"Normal case to add an emp",
-			`{"id":3,"name":"Sujith","age":22,"address":"Bangalore"}`,
-			`{"id":3,"name":"Sujith","age":22,"address":"Bangalore"}`,
+			employee{3, "Sujith", 22, "Bangalore"},
 			201,
-		},
-		{
-			"Missing fields in request body",
-			`{"id":198,"name":"Anonymous"}`,
-			`{"id":198,"name":"Anonymous","age":0,"address":""}`,
-			201,
-		},
-		{
-			"Blank request body",
-			"",
-			"Conflict in parsing request body",
-			409,
+			employee{3, "Sujith", 22, "Bangalore"},
 		},
 	}
 
 	for _, tc := range tests {
-		mockReq := httptest.NewRequest("POST", "/employee", strings.NewReader(tc.req))
+
+		reqBody, _ := json.Marshal(tc.req)
+		mockReq := httptest.NewRequest("POST", "/employee", bytes.NewReader(reqBody))
 		mockResp := httptest.NewRecorder()
 
 		PostEmployee(mockResp, mockReq)
 
-		assert.Equal(t, tc.expCode, mockResp.Code)
-		assert.Equal(t, tc.expResp, strings.TrimSpace(mockResp.Body.String()))
+		var actResp employee
+		_ = json.Unmarshal(mockResp.Body.Bytes(), &actResp)
+
+		assert.Equal(t, tc.expCode, mockResp.Code, tc.description)
+		assert.Equal(t, tc.expResp, actResp, tc.description)
 	}
 }
