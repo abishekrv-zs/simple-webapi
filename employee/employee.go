@@ -8,9 +8,9 @@ import (
 
 type employee struct {
 	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Age     int    `json:"age"`
-	Address string `json:"address"`
+	Name    string `json:"name,omitempty"`
+	Age     int    `json:"age,omitempty"`
+	Address string `json:"address,omitempty"`
 }
 
 var employees = []employee{
@@ -20,34 +20,39 @@ var employees = []employee{
 
 func GetEmployee(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 
 	resp, _ := json.Marshal(employees)
-
-	if _, err := w.Write(resp); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"error": "failed to write response"}`))
-	}
+	w.Write(resp)
 }
 
 func PostEmployee(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 
 	var newEmp employee
 	reqBody, _ := io.ReadAll(r.Body)
 
 	if err := json.Unmarshal(reqBody, &newEmp); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error": "invalid request body"}`))
+		w.Write([]byte(`{"error": "invalid request body"}`))
 		return
+	}
+
+	if newEmp.Id == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "id cannot be 0"}`))
+		return
+	}
+
+	for _, emp := range employees {
+		if newEmp.Id == emp.Id {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(`{"error": "id already exists"}`))
+			return
+		}
 	}
 
 	employees = append(employees, newEmp)
 	resp, _ := json.Marshal(newEmp)
-
-	if _, err := w.Write(resp); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"error": "failed to write response"}`))
-	}
+	w.WriteHeader(http.StatusCreated)
+	w.Write(resp)
 }
