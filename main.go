@@ -11,8 +11,9 @@ func main() {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/employee", employee.GetEmployee).Methods("GET")
+	router.HandleFunc("/employee", employee.GetAllEmployee).Methods("GET")
 	router.HandleFunc("/employee", employee.PostEmployee).Methods("POST")
+	router.HandleFunc("/employee/{id}", employee.GetEmployee).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":8000", router))
 }

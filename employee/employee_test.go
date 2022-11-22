@@ -3,12 +3,15 @@ package employee
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"log"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
-func TestGetEmployee(t *testing.T) {
+func TestGetAllEmployee(t *testing.T) {
 
 	tests := []struct {
 		description string
@@ -16,7 +19,7 @@ func TestGetEmployee(t *testing.T) {
 		expResp     []employee
 	}{
 		{
-			"Normal get request",
+			"Normal get all request",
 			200,
 			[]employee{
 				{1, "Abishek", 22, "Chennai"},
@@ -29,15 +32,56 @@ func TestGetEmployee(t *testing.T) {
 		mockReq := httptest.NewRequest("GET", "/employee", nil)
 		mockResp := httptest.NewRecorder()
 
-		GetEmployee(mockResp, mockReq)
+		GetAllEmployee(mockResp, mockReq)
 
 		var actResp []employee
 
-		_ = json.Unmarshal(mockResp.Body.Bytes(), &actResp)
+		if err := json.Unmarshal(mockResp.Body.Bytes(), &actResp); err != nil {
+			log.Println(err)
+		}
 
 		assert.Equal(t, tc.expCode, mockResp.Code, tc.description)
 		assert.Equal(t, tc.expResp, actResp, tc.description)
+	}
+}
 
+func TestGetEmployee(t *testing.T) {
+	tests := []struct {
+		description string
+		empId       int
+		expCode     int
+		expResp     string
+	}{
+		{
+			description: "case for valid emp id",
+			empId:       1,
+			expCode:     200,
+			expResp:     `{"id":1,"name":"Abishek","age":22,"address":"Chennai"}`,
+		},
+		{
+			description: "case for invalid emp id",
+			empId:       -1,
+			expCode:     400,
+			expResp:     `{"error": "invalid employee id"}`,
+		},
+		{
+			description: "case for non existent emp id",
+			empId:       999,
+			expCode:     404,
+			expResp:     `{"error": "employee id not found"}`,
+		},
+	}
+
+	for _, tc := range tests {
+
+		mockReq := httptest.NewRequest("GET", "/employee", nil)
+		mockReq = mux.SetURLVars(mockReq, map[string]string{"id": strconv.Itoa(tc.empId)})
+		mockResp := httptest.NewRecorder()
+
+		GetEmployee(mockResp, mockReq)
+
+		assert.Equal(t, tc.expCode, mockResp.Code, tc.description)
+		assert.Equal(t, tc.expResp, mockResp.Body.String(), tc.description)
 	}
 }
 
@@ -67,10 +111,10 @@ func TestPostEmployee(t *testing.T) {
 			expResp:     `{"error": "id already exists"}`,
 		},
 		{
-			description: "Case with empty id",
-			req:         map[string]any{"name": "Anonymous", "age": 22},
+			description: "Case with invalid id",
+			req:         map[string]any{"id": -5, "name": "Anonymous", "age": 22},
 			expCode:     400,
-			expResp:     `{"error": "id cannot be 0"}`,
+			expResp:     `{"error": "invalid id"}`,
 		},
 		{
 			description: "Request body with wrong types",
@@ -82,7 +126,10 @@ func TestPostEmployee(t *testing.T) {
 
 	for _, tc := range tests {
 
-		reqBody, _ := json.Marshal(tc.req)
+		reqBody, err := json.Marshal(tc.req)
+		if err != nil {
+			log.Println(err)
+		}
 		mockReq := httptest.NewRequest("POST", "/employee", bytes.NewReader(reqBody))
 		mockResp := httptest.NewRecorder()
 
